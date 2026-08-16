@@ -1,20 +1,26 @@
 package com.juandiego.backend.handlers;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpResponse;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
 import com.juandiego.backend.responses.ApiResponse;
 import com.juandiego.backend.utils.FunctionsUtils;
 
+import jakarta.servlet.http.HttpServletRequest;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -31,6 +37,18 @@ public class GlobalResponseHandler implements ResponseBodyAdvice<Object> {
     public GlobalResponseHandler(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
+
+    @ExceptionHandler(ResourceAccessException.class)
+    public ResponseEntity<Object> handleResourceAccessException(
+        ResourceAccessException ex, HttpServletRequest request){
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(Map.of(
+                "timestamp", Instant.now(),
+                "messge", "Service temporarily unavailable",
+                "path", request.getRequestURI()
+            ));
+        }
+
 
     @Override
     public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {

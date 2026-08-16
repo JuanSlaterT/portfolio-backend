@@ -1,0 +1,64 @@
+# Compilación de Maven
+target/
+**/target/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# GitHub Actions no es necesario dentro de la imagen
+.github/
+
+# IDEs y editores
+.idea/
+.vscode/
+.cursor/
+*.iml
+.classpath
+.project
+.settings/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+**/logs/
+
+# Variables de entorno y configuraciones locales
+.env
+.env.*
+!.env.example
+
+application-local.properties
+application-local.yml
+application-dev.properties
+application-dev.yml
+
+# Archivos temporales
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Reportes de pruebas y cobertura
+coverage/
+test-results/
+surefire-reports/
+failsafe-reports/
+
+# Documentación que no necesita la imagen
+README.md
+LICENSE
+docs/
+
+# Contenedores locales
+compose.yaml
+compose.yml
+docker-compose.yaml
+docker-compose.yml
