@@ -23,7 +23,7 @@ public class LanguagesClient {
     public LanguagesClient(
             RestClient.Builder builder,
             @Value("${services.languages.url}") String baseUrl,
-            @Value("${services.languages.auth-enabled:false}") boolean authEnabled,
+            @Value("${services.languages.auth-enabled:false}") boolean authEnabled
 
     ) throws IOException {
         System.out.println("LANGUAGE SERVICE URL: " + baseUrl);
