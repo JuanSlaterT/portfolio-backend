@@ -1,8 +1,8 @@
 package com.juandiego.backend.exceptions;
 
-public class LanguagesServiceUnavailableException extends RuntimeException {
+public class ServiceUnavailableException extends RuntimeException {
 
-    public LanguagesServiceUnavailableException(String message, Throwable cause) {
+    public ServiceUnavailableException(String message, Throwable cause) {
         super(message, cause);
     }
 }
