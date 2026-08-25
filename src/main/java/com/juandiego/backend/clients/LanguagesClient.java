@@ -1,13 +1,10 @@
 package com.juandiego.backend.clients;
 
-import java.util.function.Supplier;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
-import com.juandiego.backend.exceptions.LanguagesServiceUnavailableException;
+import com.juandiego.backend.utils.FunctionsUtils;
 
 import tools.jackson.databind.JsonNode;
 
@@ -25,7 +22,7 @@ public class LanguagesClient {
         }
 
         public JsonNode getLanguages() {
-                return execute(() ->
+                return FunctionsUtils.execute(() ->
                         restClient.get()
                                 .uri("api/languages")
                                 .retrieve()
@@ -34,7 +31,7 @@ public class LanguagesClient {
         }
 
         public JsonNode getLanguage(String lang) {
-                return execute(() ->
+                return FunctionsUtils.execute(() ->
                         restClient.get()
                         .uri(uriBuilder-> uriBuilder
                                 .path("/api/languages/{lang}")
@@ -45,11 +42,5 @@ public class LanguagesClient {
                 }
               
 
-        private JsonNode execute(Supplier<JsonNode> request) {
-                try {
-                        return request.get();
-                } catch (ResourceAccessException e) {
-                        throw new LanguagesServiceUnavailableException("Languages service is currently unavailable", e);
-                }
-        }
+
 }
