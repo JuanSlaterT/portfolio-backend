@@ -16,6 +16,8 @@ jobs:
   docker:
     name: Build and push
     runs-on: ubuntu-latest
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
 
     steps:
       - name: Checkout repository
@@ -34,7 +36,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v6
         with:
-          images: ${{ vars.DOCKERHUB_USERNAME }}/portfolio-backend
+          images: ${{ secrets.IMAGE_REPOSITORY }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
@@ -42,6 +44,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -52,3 +55,114 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to production
+    needs: docker
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: portfolio-bff-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy image through AWS Systems Manager
+        shell: bash
+        env:
+          COMPOSE_SERVICE: ${{ secrets.COMPOSE_SERVICE }}
+          IMAGE_DIGEST: ${{ needs.docker.outputs.image_digest }}
+          IMAGE_REPOSITORY: ${{ secrets.IMAGE_REPOSITORY }}
+          INSTANCE_TAG_KEY: ${{ secrets.INSTANCE_TAG_KEY }}
+          INSTANCE_TAG_VALUE: ${{ secrets.INSTANCE_TAG_VALUE }}
+          SSM_DOCUMENT_NAME: ${{ secrets.SSM_DOCUMENT_NAME }}
+          SSM_PARAMETER_IMAGE_DIGEST: ${{ secrets.SSM_PARAMETER_IMAGE_DIGEST }}
+          SSM_PARAMETER_SERVICE_NAME: ${{ secrets.SSM_PARAMETER_SERVICE_NAME }}
+        run: |
+          set -euo pipefail
+
+          required_variables=(
+            COMPOSE_SERVICE
+            IMAGE_DIGEST
+            IMAGE_REPOSITORY
+            INSTANCE_TAG_KEY
+            INSTANCE_TAG_VALUE
+            SSM_DOCUMENT_NAME
+            SSM_PARAMETER_IMAGE_DIGEST
+            SSM_PARAMETER_SERVICE_NAME
+          )
+
+          for variable_name in "${required_variables[@]}"; do
+            if [[ -z "${!variable_name:-}" ]]; then
+              echo "Missing required value: ${variable_name}" >&2
+              exit 1
+            fi
+          done
+
+          parameters="$(
+            jq -cn \
+              --arg service_parameter "${SSM_PARAMETER_SERVICE_NAME}" \
+              --arg service "${COMPOSE_SERVICE}" \
+              --arg digest_parameter "${SSM_PARAMETER_IMAGE_DIGEST}" \
+              --arg digest "${IMAGE_DIGEST}" \
+              '{($service_parameter): [$service], ($digest_parameter): [$digest]}'
+          )"
+
+          targets="$(
+            jq -cn \
+              --arg key "tag:${INSTANCE_TAG_KEY}" \
+              --arg value "${INSTANCE_TAG_VALUE}" \
+              '[{Key: $key, Values: [$value]}]'
+          )"
+
+          command_id="$(
+            aws ssm send-command \
+              --document-name "${SSM_DOCUMENT_NAME}" \
+              --targets "${targets}" \
+              --parameters "${parameters}" \
+              --comment "Deploy ${COMPOSE_SERVICE} from GitHub Actions" \
+              --query 'Command.CommandId' \
+              --output text
+          )"
+
+          echo "SSM command sent: ${command_id}"
+
+          for attempt in {1..60}; do
+            status="$(
+              aws ssm list-command-invocations \
+                --command-id "${command_id}" \
+                --query 'CommandInvocations[0].Status' \
+                --output text
+            )"
+
+            case "${status}" in
+              Success)
+                echo "Deployment completed successfully."
+                exit 0
+                ;;
+              Cancelled|TimedOut|Failed|Cancelling)
+                echo "Deployment failed with status: ${status}" >&2
+                aws ssm list-command-invocations \
+                  --command-id "${command_id}" \
+                  --details \
+                  --output json
+                exit 1
+                ;;
+              *)
+                echo "Deployment status: ${status} (attempt ${attempt}/60)"
+                sleep 10
+                ;;
+            esac
+          done
+
+          echo "Deployment did not finish within 10 minutes." >&2
+          exit 1
