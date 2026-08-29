@@ -17,7 +17,7 @@ public class StatsController {
         this.statsService = statsService;
     }
 
-    @GetMapping
+    @GetMapping({"", "/"})
     public JsonNode getGameStats() {
         return statsService.getPlayerStats();
     }

@@ -19,7 +19,7 @@ public class LanguagesController {
         this.languagesService = languagesService;
     }
 
-    @GetMapping
+    @GetMapping({"", "/"})
     public JsonNode getLanguages() {
         return languagesService.getLanguages();
     }
