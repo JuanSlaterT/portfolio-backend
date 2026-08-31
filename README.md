@@ -1,5 +1,7 @@
 # Portfolio Backend (BFF)
 
+**English** | [Español](README.es.md)
+
 <p align="center">
   <img src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white" alt="Java 21" />
   <img src="https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot 4.1.0" />
@@ -8,23 +10,23 @@
   <img src="https://img.shields.io/badge/Docker-Multi--stage-2496ED?logo=docker&logoColor=white" alt="Docker" />
 </p>
 
-Backend for Frontend del portafolio personal. Este servicio ofrece al navegador una sola API HTTP, delega cada operación al microservicio privado correspondiente, normaliza las respuestas JSON y aplica controles básicos por visitante antes de permitir el acceso.
+Backend for Frontend for the personal portfolio. This service gives the browser a single HTTP API, delegates each operation to the appropriate private microservice, normalizes JSON responses, and applies basic per-visitor controls before granting access.
 
-> API pública: `https://api-portfolio.zapto.org/api`
+> Public API: `https://api-portfolio.zapto.org/api`
 
-## Papel dentro del sistema
+## Role in the system
 
-El BFF es la única aplicación Java a la que Nginx reenvía tráfico público. Los microservicios no publican puertos en el host y solo son accesibles mediante la red privada `microservices` de Docker Compose.
+The BFF is the only Java application to which Nginx forwards public traffic. The microservices do not publish host ports and can only be reached through the private Docker Compose `microservices` network.
 
 ```mermaid
 flowchart LR
-    Browser[Frontend React] -->|HTTPS| DNS[No-IP DNS]
+    Browser[React frontend] -->|HTTPS| DNS[No-IP DNS]
     DNS --> Nginx[Nginx<br/>TLS :443]
 
     subgraph EC2[Amazon EC2 + Docker Compose]
-        Nginx -->|red edge| BFF[BFF :8080]
+        Nginx -->|edge network| BFF[BFF :8080]
 
-        subgraph Private[red microservices]
+        subgraph Private[microservices network]
             Language[language-service :8081]
             Stats[stats-service :8082]
             Resume[resume-request-service :8083]
@@ -35,81 +37,81 @@ flowchart LR
         BFF --> Resume
     end
 
-    Language --> S3Languages[(S3<br/>documentos de idiomas)]
+    Language --> S3Languages[(S3<br/>language documents)]
     Stats --> OPGG[OP.GG]
     Stats --> Henrik[HenrikDev]
     Resume --> SQS[[SQS + DLQ]]
     SQS --> Lambda[Lambda<br/>consumer]
     Lambda --> DynamoDB[(DynamoDB)]
     Lambda --> Gmail[Gmail SMTP]
-    Gmail -. enlace localizado .-> CloudFront[CloudFront]
-    CloudFront --> S3Downloads[(S3 privado<br/>archivos de CV)]
+    Gmail -. localized link .-> CloudFront[CloudFront]
+    CloudFront --> S3Downloads[(Private S3<br/>resume files)]
 ```
 
-Un request normal sigue este recorrido:
+A normal request follows this path:
 
-1. El frontend llama a `https://api-portfolio.zapto.org/api` y agrega las cabeceras de visitante.
-2. Nginx termina TLS y reenvía la solicitud al BFF por la red `edge`.
-3. El BFF valida las cabeceras y consulta el limitador de solicitudes en memoria.
-4. Un controlador MVC delega mediante `RestClient` al servicio de idiomas, estadísticas o solicitudes de CV.
-5. El resultado vuelve al cliente dentro del contrato uniforme `{ statusCode, message, data }`.
+1. The frontend calls `https://api-portfolio.zapto.org/api` and adds the visitor headers.
+2. Nginx terminates TLS and forwards the request to the BFF over the `edge` network.
+3. The BFF validates the headers and checks the in-memory request limiter.
+4. An MVC controller delegates through `RestClient` to the language, statistics, or resume-request service.
+5. The result is returned to the client in the uniform `{ statusCode, message, data }` envelope.
 
-Aunque el proyecto incluye `spring-cloud-starter-gateway-server-webmvc`, el enrutamiento actual no utiliza rutas declarativas de Spring Cloud Gateway: está implementado explícitamente con controladores, servicios y clientes `RestClient`.
+Although the project includes `spring-cloud-starter-gateway-server-webmvc`, the current routing does not use declarative Spring Cloud Gateway routes. It is implemented explicitly through controllers, services, and `RestClient` clients.
 
-## Ecosistema de repositorios
+## Repository ecosystem
 
-| Repositorio | Responsabilidad |
+| Repository | Responsibility |
 | --- | --- |
-| [`portfolio-frontend`](https://github.com/JuanSlaterT/portfolio-frontend) | SPA en React 18, TypeScript, Vite, Tailwind e i18next. Consume este BFF, carga desde la API todos los idiomas, muestra las estadísticas y envía solicitudes de CV. |
-| [`portfolio-backend`](https://github.com/JuanSlaterT/portfolio-backend) | Este repositorio: BFF, contrato público, CORS, cabeceras de visitante, rate limiting y composición de respuestas. |
-| [`portfolio-microservices-language_service`](https://github.com/JuanSlaterT/portfolio-microservices-language_service) | Microservicio Java que lista y descarga desde S3 los documentos JSON de traducción. |
-| [`portfolio-microservices-stats_service`](https://github.com/JuanSlaterT/portfolio-microservices-stats_service) | Microservicio Java que consulta OP.GG y HenrikDev y agrega estadísticas de League of Legends y VALORANT. |
-| [`portfolio-microservices-resume_request_service`](https://github.com/JuanSlaterT/portfolio-microservices-resume_request_service) | Productor Java que valida la solicitud, genera un UUID v7 y publica el mensaje en SQS. |
-| [`portfolio-consumer-resume_request`](https://github.com/JuanSlaterT/portfolio-consumer-resume_request) | Lambda Node.js que persiste en DynamoDB, notifica al administrador y envía al visitante el enlace localizado del CV mediante Gmail SMTP. |
-| [`portfolio-arch-terraform`](https://github.com/JuanSlaterT/portfolio-arch-terraform) | Infraestructura AWS, Docker Compose, Nginx/Certbot, S3, CloudFront, SQS, Lambda, DynamoDB, CloudWatch, IAM, SSM y despliegues con GitHub OIDC. |
+| [`portfolio-frontend`](https://github.com/JuanSlaterT/portfolio-frontend) | React 18, TypeScript, Vite, Tailwind, and i18next SPA. It consumes this BFF, loads every language from the API, displays statistics, and submits resume requests. |
+| [`portfolio-backend`](https://github.com/JuanSlaterT/portfolio-backend) | This repository: public BFF contract, CORS, visitor headers, rate limiting, and response composition. |
+| [`portfolio-microservices-language_service`](https://github.com/JuanSlaterT/portfolio-microservices-language_service) | Java microservice that lists and downloads translation JSON documents from S3. |
+| [`portfolio-microservices-stats_service`](https://github.com/JuanSlaterT/portfolio-microservices-stats_service) | Java microservice that queries OP.GG and HenrikDev and aggregates League of Legends and VALORANT statistics. |
+| [`portfolio-microservices-resume_request_service`](https://github.com/JuanSlaterT/portfolio-microservices-resume_request_service) | Java producer that validates the request, generates a UUID v7, and publishes the message to SQS. |
+| [`portfolio-consumer-resume_request`](https://github.com/JuanSlaterT/portfolio-consumer-resume_request) | Node.js Lambda that persists the request in DynamoDB, notifies the administrator, and emails the visitor a localized resume link through Gmail SMTP. |
+| [`portfolio-arch-terraform`](https://github.com/JuanSlaterT/portfolio-arch-terraform) | AWS infrastructure, Docker Compose, Nginx/Certbot, S3, CloudFront, SQS, Lambda, DynamoDB, CloudWatch, IAM, SSM, and deployments through GitHub OIDC. |
 
-## Responsabilidades del BFF
+## BFF responsibilities
 
-Este servicio se encarga de:
+This service is responsible for:
 
-- presentar una única superficie HTTP bajo `/api`;
-- ocultar las direcciones internas de los microservicios;
-- delegar las solicitudes sin acoplar el frontend a la topología de Docker;
-- envolver las respuestas JSON en un contrato común;
-- propagar el estado y adaptar el cuerpo de los errores HTTP devueltos por los servicios internos;
-- exigir metadatos de visitante en cada solicitud que no sea un preflight CORS;
-- limitar por `x-visitorId` la frecuencia de solicitudes;
-- permitir el frontend local mediante CORS.
+- presenting a single HTTP surface under `/api`;
+- hiding the internal microservice addresses;
+- delegating requests without coupling the frontend to the Docker topology;
+- wrapping JSON responses in a shared envelope;
+- propagating the status and adapting the body of HTTP errors returned by internal services;
+- requiring visitor metadata on every request other than a CORS preflight;
+- limiting request frequency by `x-visitorId`;
+- allowing the local frontend through CORS.
 
-El BFF no administra los documentos de idiomas, no consulta directamente los proveedores de videojuegos, no publica mensajes en SQS, no persiste datos y no envía correos. Tampoco es responsable de DNS, TLS, AWS o del despliegue de los contenedores.
+The BFF does not manage language documents, query gaming providers directly, publish SQS messages, persist data, or send email. It also does not own DNS, TLS, AWS resources, or container deployment.
 
-## API HTTP
+## HTTP API
 
 ### Endpoints
 
-| Método | Ruta pública | Destino interno | Resultado |
+| Method | Public path | Internal destination | Result |
 | --- | --- | --- | --- |
-| `GET` | `/api/languages` | `language-service:8081` | Catálogo ordenado de idiomas disponibles en S3. |
-| `GET` | `/api/languages/{language}` | `language-service:8081` | Documento JSON del idioma solicitado. La coincidencia interna ignora mayúsculas, espacios externos y acentos. |
-| `GET` | `/api/stats` | `stats-service:8082` | Vista agregada de League of Legends y VALORANT para el perfil configurado por ese servicio. |
-| `POST` | `/api/resume-request` | `resume-request-service:8083` | Acepta una solicitud de CV y activa el flujo asíncrono SQS → Lambda. |
+| `GET` | `/api/languages` | `language-service:8081` | Sorted catalog of the languages available in S3. |
+| `GET` | `/api/languages/{language}` | `language-service:8081` | JSON document for the requested language. Internal matching ignores case, surrounding whitespace, and accents. |
+| `GET` | `/api/stats` | `stats-service:8082` | Aggregated League of Legends and VALORANT view for the profile configured by that service. |
+| `POST` | `/api/resume-request` | `resume-request-service:8083` | Accepts a resume request and starts the asynchronous SQS → Lambda flow. |
 
-Las variantes con barra final también están aceptadas en los endpoints raíz.
+The root endpoints also accept their trailing-slash variants.
 
-### Cabeceras obligatorias
+### Required headers
 
-Todas las solicitudes, excepto `OPTIONS`, deben incluir:
+Every request except `OPTIONS` must include:
 
-| Cabecera | Contrato validado por el BFF |
+| Header | Contract validated by the BFF |
 | --- | --- |
-| `x-visitorId` | UUID versión 4 con variante RFC 4122. Es la clave utilizada por el rate limiter. |
-| `x-ipHash` | Texto no vacío. El BFF lo trata como un identificador opaco y no valida aquí su algoritmo. |
-| `x-userAgent` | Texto no vacío con información del cliente. |
-| `x-lastSeenAt` | Instante ISO-8601 o timestamp Unix en segundos o milisegundos. |
+| `x-visitorId` | Version 4 UUID with the RFC 4122 variant. This is the rate-limiter key. |
+| `x-ipHash` | Non-empty text. The BFF treats it as an opaque identifier and does not validate its algorithm here. |
+| `x-userAgent` | Non-empty client information. |
+| `x-lastSeenAt` | ISO-8601 instant or Unix timestamp in seconds or milliseconds. |
 
-El frontend genera y conserva estos datos en `localStorage`, actualiza `x-lastSeenAt` en cada llamada y agrega las cuatro cabeceras automáticamente.
+The frontend creates and stores this information in `localStorage`, updates `x-lastSeenAt` on each call, and automatically adds all four headers.
 
-Ejemplo de consulta local:
+Example local request:
 
 ```bash
 curl -i http://localhost:8080/api/languages \
@@ -119,20 +121,20 @@ curl -i http://localhost:8080/api/languages \
   -H "x-lastSeenAt: 2026-08-31T12:00:00Z"
 ```
 
-### Solicitud de CV
+### Resume request
 
-El body que el frontend envía al BFF es:
+The frontend sends this body to the BFF:
 
 ```json
 {
   "email": "person@example.com",
   "ipHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "language": "es",
+  "language": "en",
   "subscribeToUpdates": true
 }
 ```
 
-`language` debe ser `es` o `en`, que son los idiomas para los cuales el consumidor posee plantillas y archivos de CV. El microservicio productor añade `requestId`, `requestedAt` y `timestamp` antes de publicar el mensaje.
+`language` must be `es` or `en`, the languages for which the consumer has templates and resume files. The producer microservice adds `requestId`, `requestedAt`, and `timestamp` before publishing the message.
 
 ```bash
 curl -i -X POST http://localhost:8080/api/resume-request \
@@ -141,12 +143,12 @@ curl -i -X POST http://localhost:8080/api/resume-request \
   -H "x-ipHash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" \
   -H "x-userAgent: local-curl" \
   -H "x-lastSeenAt: 1788177600000" \
-  -d '{"email":"person@example.com","ipHash":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","language":"es","subscribeToUpdates":true}'
+  -d '{"email":"person@example.com","ipHash":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","language":"en","subscribeToUpdates":true}'
 ```
 
-### Contrato de respuesta
+### Response contract
 
-Las respuestas JSON exitosas y los errores manejados utilizan:
+Successful JSON responses and handled errors use:
 
 ```json
 {
@@ -156,7 +158,7 @@ Las respuestas JSON exitosas y los errores manejados utilizan:
 }
 ```
 
-Ejemplo del catálogo de idiomas:
+Language catalog example:
 
 ```json
 {
@@ -169,7 +171,7 @@ Ejemplo del catálogo de idiomas:
 }
 ```
 
-Ejemplo de aceptación de una solicitud de CV:
+Accepted resume request example:
 
 ```json
 {
@@ -182,40 +184,40 @@ Ejemplo de aceptación de una solicitud de CV:
 }
 ```
 
-Antes de envolver cualquier respuesta JSON, el advice global elimina recursivamente los campos `trace`, `status` y `error`. Los errores HTTP emitidos por un microservicio conservan su código de estado y se adaptan al contrato público del BFF.
+Before wrapping any JSON response, the global advice recursively removes the `trace`, `status`, and `error` fields. HTTP errors emitted by a microservice keep their status code and are adapted to the BFF's public contract.
 
-## Rate limiting por visitante
+## Per-visitor rate limiting
 
-`VisitorRateLimiter` utiliza una ventana móvil en memoria:
+`VisitorRateLimiter` uses an in-memory sliding window:
 
-| Parámetro | Valor actual |
+| Setting | Current value |
 | --- | ---: |
-| Solicitudes permitidas | 10 |
-| Ventana | 1 minuto |
-| Solicitud que activa el bloqueo | La número 11 dentro de la ventana |
-| Duración del bloqueo | 5 minutos |
-| Identificador | `x-visitorId` |
+| Allowed requests | 10 |
+| Window | 1 minute |
+| Request that triggers the block | The 11th request within the window |
+| Block duration | 5 minutes |
+| Identifier | `x-visitorId` |
 
-Durante el bloqueo, el BFF responde con `429 Too Many Requests` y añade:
+While blocked, the BFF returns `429 Too Many Requests` and adds:
 
 ```http
 x-missingTime: 2026-08-31T12:05:00Z
 ```
 
-El BFF expone esa cabecera mediante CORS; el frontend conserva el instante en `localStorage` y muestra una cuenta regresiva global hasta que el bloqueo vence.
+The BFF exposes this header through CORS. The frontend stores the timestamp in `localStorage` and displays a global countdown until the block expires.
 
-Este limitador es local al proceso: se reinicia al recrear el contenedor y no comparte estado entre réplicas. Está pensado como protección ligera del portafolio, no como un límite distribuido ni como autenticación.
+This limiter is local to the process: it resets when the container is recreated and does not share state between replicas. It is lightweight portfolio protection, not a distributed limit or an authentication mechanism.
 
-## Configuración
+## Configuration
 
-| Variable de entorno | Predeterminado | Uso |
+| Environment variable | Default | Purpose |
 | --- | --- | --- |
-| `PORT` | `8080` | Puerto HTTP del BFF. |
-| `LANGUAGE_SERVICE_URL` | `http://localhost:8081` | URL base de `language-service`. |
-| `STATS_SERVICE_URL` | `http://localhost:8082` | URL base de `stats-service`. |
-| `RESUME_REQUEST_SERVICE_URL` | `http://localhost:8083` | URL base de `resume-request-service`. |
+| `PORT` | `8080` | BFF HTTP port. |
+| `LANGUAGE_SERVICE_URL` | `http://localhost:8081` | `language-service` base URL. |
+| `STATS_SERVICE_URL` | `http://localhost:8082` | `stats-service` base URL. |
+| `RESUME_REQUEST_SERVICE_URL` | `http://localhost:8083` | `resume-request-service` base URL. |
 
-En Docker Compose de producción, los valores esperados son:
+The expected values in the production Docker Compose stack are:
 
 ```dotenv
 LANGUAGE_SERVICE_URL=http://language-service:8081
@@ -225,34 +227,34 @@ RESUME_REQUEST_SERVICE_URL=http://resume-request-service:8083
 
 ### CORS
 
-La configuración actual permite:
+The current configuration allows:
 
-- origen: `http://localhost:5173`;
-- métodos: `GET`, `POST` y `OPTIONS`;
-- cualquier cabecera de solicitud;
-- lectura desde el navegador de `x-missingTime`.
+- origin: `http://localhost:5173`;
+- methods: `GET`, `POST`, and `OPTIONS`;
+- any request header;
+- browser access to `x-missingTime`.
 
-Antes de servir el frontend desde otro dominio se debe añadir explícitamente ese origen a `CorsConfig` o externalizar la configuración.
+Before serving the frontend from another domain, that origin must be explicitly added to `CorsConfig` or the configuration must be externalized.
 
-## Desarrollo local
+## Local development
 
-### Requisitos
+### Requirements
 
 - JDK 21;
-- los tres microservicios en `8081`, `8082` y `8083` para probar el flujo completo;
-- credenciales y configuración propias de cada integración externa cuando se ejecuten esos microservicios.
+- all three microservices on `8081`, `8082`, and `8083` to test the complete flow;
+- credentials and configuration for each external integration when those microservices are running.
 
-Los servicios relacionados necesitan, como mínimo:
+At a minimum, the related services need:
 
-| Servicio | Configuración externa principal |
+| Service | Main external configuration |
 | --- | --- |
-| `language-service` | `S3_BUCKET_NAME`, región y credenciales AWS con acceso de lectura a S3. |
-| `stats-service` | `SERVICES_OPGG_URL`, `SERVICES_HENRIKDEV_URL` y `HENRIKDEV_API_KEY`. |
-| `resume-request-service` | `RESUME_REQUESTS_QUEUE_URL`, región y credenciales AWS con `sqs:SendMessage`. |
+| `language-service` | `S3_BUCKET_NAME`, region, and AWS credentials with read access to S3. |
+| `stats-service` | `SERVICES_OPGG_URL`, `SERVICES_HENRIKDEV_URL`, and `HENRIKDEV_API_KEY`. |
+| `resume-request-service` | `RESUME_REQUESTS_QUEUE_URL`, region, and AWS credentials with `sqs:SendMessage`. |
 
-Las pruebas unitarias de este repositorio no requieren levantar esos servicios.
+This repository's unit tests do not require those services to be running.
 
-### Ejecutar con Maven Wrapper
+### Run with the Maven Wrapper
 
 Windows:
 
@@ -260,15 +262,15 @@ Windows:
 .\mvnw.cmd spring-boot:run
 ```
 
-Linux o macOS:
+Linux or macOS:
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-> Nota para Windows: el `mvnw.cmd` 3.3.4 incluido actualmente puede fallar en algunos entornos de PowerShell con `No se puede indizar en una matriz nula` y `Cannot start maven from wrapper`. Mientras se regenera el wrapper, se puede usar Maven 3.9.16 instalado (`mvn spring-boot:run`, `mvn test`) o invocar directamente la distribución que el wrapper haya descargado en `.m2/wrapper/dists`.
+> Windows note: the included `mvnw.cmd` 3.3.4 can fail in some PowerShell environments with `Cannot index into a null array` and `Cannot start maven from wrapper`. Until the wrapper is regenerated, use an installed Maven 3.9.16 distribution (`mvn spring-boot:run`, `mvn test`) or invoke the distribution previously downloaded under `.m2/wrapper/dists`.
 
-Con URLs personalizadas en PowerShell:
+With custom URLs in PowerShell:
 
 ```powershell
 $env:LANGUAGE_SERVICE_URL = "http://localhost:8081"
@@ -279,7 +281,7 @@ $env:PORT = "8080"
 .\mvnw.cmd spring-boot:run
 ```
 
-### Pruebas y empaquetado
+### Tests and packaging
 
 ```powershell
 .\mvnw.cmd test
@@ -291,17 +293,17 @@ $env:PORT = "8080"
 ./mvnw clean package
 ```
 
-La suite cubre el arranque del contexto, validación de cabeceras, preflight CORS, timestamps ISO/Unix, límite de solicitudes, expiración del bloqueo y la cabecera `x-missingTime`.
+The suite covers application-context startup, header validation, CORS preflight, ISO/Unix timestamps, the request limit, block expiration, and the `x-missingTime` header.
 
 ## Docker
 
-La imagen usa un build multi-stage con Maven y Eclipse Temurin 21:
+The image uses a multi-stage build with Maven and Eclipse Temurin 21:
 
 ```bash
 docker build -t portfolio-backend:local .
 ```
 
-Si los microservicios se ejecutan en el host mediante Docker Desktop:
+If the microservices are running on the Docker Desktop host:
 
 ```bash
 docker run --rm -p 8080:8080 \
@@ -311,11 +313,11 @@ docker run --rm -p 8080:8080 \
   portfolio-backend:local
 ```
 
-En Linux puede ser necesario agregar `--add-host=host.docker.internal:host-gateway`. En el despliegue real no se usa esa dirección: los contenedores se descubren mediante DNS de Docker.
+On Linux, `--add-host=host.docker.internal:host-gateway` may be required. The production deployment does not use this address; containers discover one another through Docker DNS.
 
-El `Dockerfile` ejecuta el empaquetado con `-DskipTests`; por ello, la suite debe ejecutarse como un paso separado antes de construir o publicar la imagen.
+The `Dockerfile` packages with `-DskipTests`, so the test suite must run separately before building or publishing the image.
 
-## Estructura del repositorio
+## Repository structure
 
 ```text
 .
@@ -325,57 +327,57 @@ El `Dockerfile` ejecuta el empaquetado con `-DskipTests`; por ello, la suite deb
 └── src
     ├── main
     │   ├── java/com/juandiego/backend
-    │   │   ├── clients/       # RestClient para los tres microservicios
-    │   │   ├── config/        # CORS y registro del interceptor
-    │   │   ├── controllers/   # Superficie HTTP pública
-    │   │   ├── exceptions/    # Excepciones del BFF
-    │   │   ├── handlers/      # Respuestas, errores y cabeceras de visitante
-    │   │   ├── responses/     # Contrato ApiResponse
-    │   │   ├── services/      # Delegación de cada capacidad
-    │   │   └── utils/         # Utilidades compartidas
+    │   │   ├── clients/       # RestClient clients for the three microservices
+    │   │   ├── config/        # CORS and interceptor registration
+    │   │   ├── controllers/   # Public HTTP surface
+    │   │   ├── exceptions/    # BFF exceptions
+    │   │   ├── handlers/      # Responses, errors, and visitor headers
+    │   │   ├── responses/     # ApiResponse contract
+    │   │   ├── services/      # Capability delegation
+    │   │   └── utils/         # Shared utilities
     │   └── resources/application.properties
     └── test/java/com/juandiego/backend
-        ├── handlers/          # Validación e interceptor
-        └── services/          # Ventana móvil y bloqueo
+        ├── handlers/          # Validation and interceptor tests
+        └── services/          # Sliding-window and block tests
 ```
 
-## Despliegue en AWS
+## AWS deployment
 
-La infraestructura se define en [`portfolio-arch-terraform`](https://github.com/JuanSlaterT/portfolio-arch-terraform). El contrato de producción actual es:
+The infrastructure is defined in [`portfolio-arch-terraform`](https://github.com/JuanSlaterT/portfolio-arch-terraform). The current production contract is:
 
-- una instancia Amazon Linux 2023 en una subred pública;
-- Security Group con entrada pública únicamente en `80` y `443`;
-- Nginx como único contenedor con puertos publicados;
-- TLS de Let's Encrypt administrado por Certbot;
-- BFF conectado a las redes `edge` y `microservices`;
-- microservicios conectados únicamente a `microservices`;
-- logs de contenedores enviados a `/portfolio/production/backend` en CloudWatch Logs;
-- administración de la instancia mediante AWS Systems Manager, sin puerto SSH público;
-- despliegues por servicio usando GitHub OIDC, documentos SSM e imágenes identificadas por digest;
-- credenciales temporales del rol de EC2 para los servicios que acceden a S3 y SQS, con acceso a IMDS filtrado por el firewall del host.
+- one Amazon Linux 2023 instance in a public subnet;
+- a Security Group with public ingress only on `80` and `443`;
+- Nginx as the only container with published ports;
+- Let's Encrypt TLS managed by Certbot;
+- the BFF connected to both `edge` and `microservices` networks;
+- microservices connected only to `microservices`;
+- container logs sent to `/portfolio/production/backend` in CloudWatch Logs;
+- instance administration through AWS Systems Manager without a public SSH port;
+- per-service deployments through GitHub OIDC, SSM documents, and digest-addressed images;
+- temporary EC2-role credentials for services accessing S3 and SQS, with IMDS access filtered by the host firewall.
 
-La imagen se selecciona con:
+The image is selected with:
 
 ```text
 ${dockerhub_username}/portfolio-backend:${bff_version}
 ```
 
-El contenedor no publica `8080` en el host; Nginx lo alcanza mediante `http://bff:8080` dentro de la red `edge`.
+The container does not publish `8080` on the host. Nginx reaches it through `http://bff:8080` on the `edge` network.
 
-## Consideraciones actuales
+## Current considerations
 
-- Las cabeceras de visitante y el rate limiter no sustituyen autenticación ni autorización.
-- `x-ipHash` y `x-userAgent` solo se comprueban como valores no vacíos en esta capa.
-- El rate limiter vive en memoria, no es distribuido y pierde su estado al reiniciar.
-- CORS solo permite actualmente el frontend local en `http://localhost:5173`.
-- El BFF no aplica reintentos, circuit breaker, caché ni fallback sobre las llamadas internas.
-- No hay un endpoint Actuator o health check propio en este repositorio.
-- Los contratos de dominio se transportan como `JsonNode`; la validación detallada pertenece a cada microservicio.
-- La disponibilidad de `/api/stats` depende simultáneamente de OP.GG y HenrikDev; el servicio de estadísticas no devuelve resultados parciales.
-- La entrega de CV es asíncrona. Una respuesta exitosa confirma que el productor publicó en SQS, no que DynamoDB y los correos ya hayan terminado.
-- La arquitectura de ejecución usa una sola EC2 y una sola instancia de cada contenedor, por lo que no ofrece alta disponibilidad.
+- Visitor headers and rate limiting do not replace authentication or authorization.
+- `x-ipHash` and `x-userAgent` are only checked for non-empty values at this layer.
+- The rate limiter is in memory, is not distributed, and loses state on restart.
+- CORS currently allows only the local frontend at `http://localhost:5173`.
+- The BFF does not apply retries, a circuit breaker, caching, or fallback to internal calls.
+- This repository does not expose an Actuator endpoint or its own health check.
+- Domain contracts are transported as `JsonNode`; detailed validation belongs to each microservice.
+- `/api/stats` depends on both OP.GG and HenrikDev; the statistics service does not return partial results.
+- Resume delivery is asynchronous. A successful response confirms that the producer published to SQS, not that DynamoDB persistence and email delivery have completed.
+- The runtime architecture uses one EC2 instance and one instance of each container, so it does not provide high availability.
 
-## Autor
+## Author
 
 **Juan Diego Arévalo Bernal**  
 [GitHub](https://github.com/JuanSlaterT) · [LinkedIn](https://www.linkedin.com/in/juan-diego-ar%C3%A9valo-bernal-219428227/)
